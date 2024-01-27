@@ -1,22 +1,11 @@
 const express = require('express');
-const helmet = require('helmet');
 const app = express();
-
 const port = process.env.PORT || 5000;
 const cors = require('cors');
+require('dotenv').config();
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-require('dotenv').config();
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.fznkpfd.mongodb.net/?retryWrites=true&w=majority`;
-
-
-
-// console.log(process.env.DB_PASS, process.env.DB_USER);
-//middleware
-app.use(express.json());
-app.use(cors());
-app.use(helmet());
-
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -25,27 +14,21 @@ const client = new MongoClient(uri, {
   }
 });
 
-// app.use(
-//   helmet.contentSecurityPolicy({
-//     directives: {
-//       defaultSrc: ["'none'"], // Set a default source that disallows everything
-//       scriptSrc: ["'self'", "'https://vercel.live'"], // Allow scripts from 'self' and 'https://vercel.live'
-//       // Add more directives for other content types if needed (e.g., imgSrc, styleSrc, etc.)
-//     },
-//   })
-// );
-
+//middleware
+app.use(express.json());
+app.use(cors());
 
 app.get('/', (req, res) => {
-  res.send('Hello World!')
+  res.send('Hello User!')
 })
 
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     //send data to mongodb database
     const toyCollection = client.db('toyDB').collection('toy');
+    const CartCollection = client.db('toyDB').collection('Cart');
     // console.log(toyCollection);
     app.post('/toys', async (req, res) => {
       const item = req.body;
@@ -77,7 +60,13 @@ async function run() {
       });
       res.send(toys);
     });
-
+    app.delete("/toys/:id", async (req, res) => {
+      const toyId = req.params.id;
+      const query = { _id: new ObjectId(toyId) };
+      console.log("deleted query id ", toyId);
+      const result = await toyCollection.deleteOne(query);
+      res.send(result);
+    });
 
     app.get('/category/:category', async (req, res) => {
       console.log(req.params.category);
@@ -88,7 +77,6 @@ async function run() {
       res.send(toys);
     })
     app.get('/category/:id', async (req, res) => {
-      console.log(req.params.id);
       const toys = await toyCollection
         .find({
           category_id: (req.params.id),
@@ -97,11 +85,10 @@ async function run() {
     })
 
     app.get("/mytoys/:email", async (req, res) => {
-      console.log(req.params.email);
       const toys = await toyCollection
-      .find({
-        sellerEmail: req.params.email,
-      }).toArray();
+        .find({
+          sellerEmail: req.params.email,
+        }).toArray();
       res.send(toys);
     });
 
@@ -114,6 +101,21 @@ async function run() {
         })
         .toArray();
       res.send(result);
+    });
+
+    //Add to Cart
+    app.post('/cart', async (req, res) => {
+      const item = req.body;
+      const result = await CartCollection.insertOne(item);
+      res.send(result);
+    });
+
+    app.get("/cart/:email", async (req, res) => {
+      const myCart = await CartCollection
+        .find({
+          email: req.params.email,
+        }).toArray();
+      res.send(myCart);
     });
 
     // Send a ping to confirm a successful connection
